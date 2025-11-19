@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Header from './components/Header'
 import Filters from './components/Filters'
 import PlantCard from './components/PlantCard'
 import CompareDrawer from './components/CompareDrawer'
+import Hero from './components/Hero'
+import HowItWorks from './components/HowItWorks'
+import Footer from './components/Footer'
 
 function App() {
   const [filters, setFilters] = useState({})
@@ -13,6 +16,7 @@ function App() {
   const [open, setOpen] = useState(false)
 
   const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+  const listRef = useRef(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -46,12 +50,23 @@ function App() {
   }
   const removeFromCompare = (plant) => setSelected(prev => prev.filter(p => p.name !== plant.name))
 
+  const scrollToList = () => {
+    listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_-10%,rgba(16,185,129,0.25),transparent_35%),radial-gradient(circle_at_80%_0,rgba(52,211,153,0.18),transparent_40%)]" />
+    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950 relative">
+      {/* global ambience */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_-10%,rgba(16,185,129,0.25),transparent_35%),radial-gradient(circle_at_80%_0,rgba(52,211,153,0.18),transparent_40%)]" />
 
       <div className="relative max-w-6xl mx-auto px-6 py-10 space-y-8">
         <Header />
+
+        <Hero onExplore={scrollToList} />
+
+        <HowItWorks />
+
+        <div ref={listRef} className="pt-8" />
 
         <Filters onChange={setFilters} />
 
@@ -69,6 +84,8 @@ function App() {
             ))}
           </div>
         )}
+
+        <Footer />
       </div>
 
       <CompareDrawer open={open} plants={selected} onClose={()=>setOpen(false)} onRemove={removeFromCompare} />
