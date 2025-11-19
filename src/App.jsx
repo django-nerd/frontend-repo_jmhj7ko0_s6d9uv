@@ -1,71 +1,85 @@
+import { useEffect, useMemo, useState } from 'react'
+import Header from './components/Header'
+import Filters from './components/Filters'
+import PlantCard from './components/PlantCard'
+import CompareDrawer from './components/CompareDrawer'
+
 function App() {
+  const [filters, setFilters] = useState({})
+  const [plants, setPlants] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [selected, setSelected] = useState([])
+  const [open, setOpen] = useState(false)
+
+  const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+  useEffect(() => {
+    const controller = new AbortController()
+    async function load() {
+      try {
+        setLoading(true)
+        setError('')
+        const params = new URLSearchParams()
+        Object.entries(filters).forEach(([k, v]) => {
+          if (v !== '' && v !== undefined && v !== null) params.append(k, v)
+        })
+        const res = await fetch(`${backend}/plants?${params.toString()}`, { signal: controller.signal })
+        if (!res.ok) throw new Error(`Failed to load: ${res.status}`)
+        const data = await res.json()
+        setPlants(data)
+      } catch (e) {
+        setError(e.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+    return () => controller.abort()
+  }, [backend, JSON.stringify(filters)])
+
+  const toggleCompare = (plant) => {
+    const exists = selected.find(p => p.name === plant.name)
+    const next = exists ? selected.filter(p => p.name !== plant.name) : [...selected, plant]
+    setSelected(next)
+    if (next.length >= 2) setOpen(true)
+  }
+  const removeFromCompare = (plant) => setSelected(prev => prev.filter(p => p.name !== plant.name))
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-950">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_-10%,rgba(16,185,129,0.25),transparent_35%),radial-gradient(circle_at_80%_0,rgba(52,211,153,0.18),transparent_40%)]" />
 
-      <div className="relative min-h-screen flex items-center justify-center p-8">
-        <div className="max-w-2xl w-full">
-          {/* Header with Flames icon */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center mb-6">
-              <img
-                src="/flame-icon.svg"
-                alt="Flames"
-                className="w-24 h-24 drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]"
-              />
-            </div>
+      <div className="relative max-w-6xl mx-auto px-6 py-10 space-y-8">
+        <Header />
 
-            <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">
-              Flames Blue
-            </h1>
+        <Filters onChange={setFilters} />
 
-            <p className="text-xl text-blue-200 mb-6">
-              Build applications through conversation
-            </p>
+        {loading && (
+          <div className="text-center text-emerald-100/80">Loading plants...</div>
+        )}
+        {error && (
+          <div className="text-center text-red-200">{error}</div>
+        )}
+
+        {!loading && !error && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {plants.map((p) => (
+              <PlantCard key={p.name} plant={p} selected={!!selected.find(s=>s.name===p.name)} onToggleCompare={toggleCompare} />
+            ))}
           </div>
-
-          {/* Instructions */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-8 shadow-xl mb-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                1
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Describe your idea</h3>
-                <p className="text-blue-200/80 text-sm">Use the chat panel on the left to tell the AI what you want to build</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                2
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Watch it build</h3>
-                <p className="text-blue-200/80 text-sm">Your app will appear in this preview as the AI generates the code</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                3
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Refine and iterate</h3>
-                <p className="text-blue-200/80 text-sm">Continue the conversation to add features and make changes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center">
-            <p className="text-sm text-blue-300/60">
-              No coding required • Just describe what you want
-            </p>
-          </div>
-        </div>
+        )}
       </div>
+
+      <CompareDrawer open={open} plants={selected} onClose={()=>setOpen(false)} onRemove={removeFromCompare} />
+
+      {selected.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30">
+          <button onClick={()=>setOpen(true)} className="px-4 py-2 rounded-full bg-emerald-500 text-emerald-950 font-semibold shadow-lg hover:brightness-110">
+            Compare {selected.length} selected
+          </button>
+        </div>
+      )}
     </div>
   )
 }
